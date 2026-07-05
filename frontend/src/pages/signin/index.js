@@ -1,4 +1,4 @@
-import { Container, Input, Title, Main, Form, Button } from '../../components'
+import { Container, Input, Title, Main, Form, Button, GoogleButton } from '../../components'
 import styles from './styles.module.css'
 import { useFormWithValidation } from '../../utils'
 import { AuthContext } from '../../contexts'
@@ -6,7 +6,7 @@ import { Redirect } from 'react-router-dom'
 import { useContext } from 'react'
 import MetaTags from 'react-meta-tags'
 
-const SignIn = ({ onSignIn }) => {
+const SignIn = ({ onSignIn, onGoogleSignIn }) => {
   const { values, handleChange, errors, isValid, resetForm } = useFormWithValidation()
   const authContext = useContext(AuthContext)
 
@@ -47,6 +47,10 @@ const SignIn = ({ onSignIn }) => {
         >
           Войти
         </Button>
+        <div className={styles.divider}>или</div>
+        <div className={styles.googleButton}>
+          <GoogleButton onGoogleAuth={onGoogleSignIn} />
+        </div>
       </Form>
     </Container>
   </Main>

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 
-from .models import Follow
+from .models import Follow, GoogleAccount
 
 User = get_user_model()
 
@@ -22,5 +22,13 @@ class FollowAdmin(admin.ModelAdmin):
     empty_value_display = '-пусто-'
 
 
+class GoogleAccountAdmin(admin.ModelAdmin):
+    """Отображение привязок Google-аккаунтов в админке."""
+    list_display = ('pk', 'user', 'google_sub', 'email', 'created_at')
+    search_fields = ('email', 'google_sub', 'user__username')
+    empty_value_display = '-пусто-'
+
+
 admin.site.register(User, UserAdmin)
 admin.site.register(Follow, FollowAdmin)
+admin.site.register(GoogleAccount, GoogleAccountAdmin)

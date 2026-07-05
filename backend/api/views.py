@@ -1,15 +1,24 @@
+from django.conf import settings
 from django.db.models import Exists, OuterRef, Prefetch
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet
 from rest_framework import permissions, status, viewsets
+from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
 
+from .google_auth import (
+    get_or_create_user_from_google,
+    verify_google_token,
+)
 from .serializers import (
     CustomUserSerializer,
     FavoriteRecipeSerializer,
+    GoogleAuthSerializer,
     IngredientSerializer,
     RecipeCreateUpdateSerializer,
     RecipeSerializer,
@@ -29,6 +38,35 @@ from recipes.models import (
 )
 from users.models import Follow, User
 from .services import get_ingredients
+
+
+class GoogleAuthView(APIView):
+    """
+    Вход и регистрация через Google по ID-token (Google Identity Services).
+    Принимает {'credential': <ID-token>}, верифицирует его и возвращает
+    DRF-токен в том же формате, что и стандартный логин djoser
+    ({'auth_token': ...}).
+    """
+    authentication_classes = ()
+    permission_classes = (permissions.AllowAny,)
+    throttle_classes = (ScopedRateThrottle,)
+    throttle_scope = 'google_auth'
+
+    def post(self, request):
+        if not settings.GOOGLE_OAUTH_CLIENT_ID:
+            return Response(
+                {'error': 'Вход через Google не настроен на сервере.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        serializer = GoogleAuthSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = verify_google_token(
+            serializer.validated_data['credential']
+        )
+        user = get_or_create_user_from_google(payload)
+        token, _ = Token.objects.get_or_create(user=user)
+        return Response({'auth_token': token.key},
+                        status=status.HTTP_200_OK)
 
 
 class CustomUserViewSet(UserViewSet):

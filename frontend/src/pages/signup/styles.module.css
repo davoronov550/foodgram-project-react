@@ -5,3 +5,32 @@
 .button {
   font-size: 18px;
 }
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: #a9a9a9;
+  font-size: 14px;
+  margin: 24px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.divider::before {
+  margin-right: 16px;
+}
+
+.divider::after {
+  margin-left: 16px;
+}
+
+.googleButton {
+  display: flex;
+  justify-content: center;
+}

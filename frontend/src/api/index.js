@@ -44,6 +44,17 @@ class Api {
     ).then(this.checkResponse)
   }
 
+  signinGoogle (credential) {
+    return fetch(
+      '/api/auth/google/',
+      {
+        method: 'POST',
+        headers: this._headers,
+        body: JSON.stringify({ credential })
+      }
+    ).then(this.checkResponse)
+  }
+
   signout () {
     const token = localStorage.getItem('token')
     return fetch(

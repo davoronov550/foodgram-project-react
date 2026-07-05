@@ -150,6 +150,11 @@ AUTH_USER_MODEL = 'users.User'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# OAuth 2.0 Web Client ID из Google Cloud Console. Требуется только для
+# входа через Google (эндпоинт /api/auth/google/); без него приложение
+# стартует, а эндпоинт отдаёт 503.
+GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID')
+
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -161,7 +166,12 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 6,
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
-    ]
+    ],
+    # Ограничение частоты для входа через Google (ScopedRateThrottle на
+    # GoogleAuthView) — защита от перебора ID-token.
+    'DEFAULT_THROTTLE_RATES': {
+        'google_auth': '10/min',
+    },
 }
 
 DJOSER = {

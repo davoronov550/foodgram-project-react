@@ -25,7 +25,11 @@ services:
 
   frontend:
     # image: nadezh/recipebook_frontend
-    build: ../frontend/
+    build:
+      context: ../frontend/
+      args:
+        # Значение берётся из infra/.env (или окружения запуска compose).
+        REACT_APP_GOOGLE_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
     volumes:
       - ../frontend/:/app/result_build/
     depends_on:

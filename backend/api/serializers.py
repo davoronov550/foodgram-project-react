@@ -15,6 +15,11 @@ from recipes.models import (
 from users.models import User
 
 
+class GoogleAuthSerializer(serializers.Serializer):
+    """Входные данные для входа/регистрации через Google."""
+    credential = serializers.CharField(write_only=True)
+
+
 class CustomUserCreateSerializer(UserCreateSerializer):
     """Сериализатор создания нового пользователя."""
     class Meta:

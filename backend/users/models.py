@@ -46,6 +46,39 @@ class User(AbstractUser):
         return self.username
 
 
+class GoogleAccount(models.Model):
+    """Привязка аккаунта пользователя к его Google-идентичности."""
+    user = models.OneToOneField(
+        User,
+        related_name='google_account',
+        verbose_name='Пользователь',
+        on_delete=models.CASCADE,
+    )
+    google_sub = models.CharField(
+        verbose_name='Google subject ID',
+        max_length=255,
+        unique=True,
+        db_index=True,
+        help_text='Стабильный идентификатор пользователя в Google '
+                  '(claim "sub").',
+    )
+    email = models.EmailField(
+        verbose_name='Email из Google',
+        max_length=254,
+    )
+    created_at = models.DateTimeField(
+        verbose_name='Дата привязки',
+        auto_now_add=True,
+    )
+
+    class Meta:
+        verbose_name = 'Google-аккаунт'
+        verbose_name_plural = 'Google-аккаунты'
+
+    def __str__(self):
+        return f'Google-аккаунт пользователя {self.user}'
+
+
 class Follow(models.Model):
     """Модель подписки."""
     user = models.ForeignKey(

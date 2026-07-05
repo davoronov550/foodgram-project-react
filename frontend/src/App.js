@@ -99,6 +99,33 @@ function App() {
     })
   }
 
+  const authorizationGoogle = (credential) => {
+    api.signinGoogle(credential).then(res => {
+      if (res.auth_token) {
+        localStorage.setItem('token', res.auth_token)
+        api.getUserData()
+          .then(res => {
+            setUser(res)
+            setLoggedIn(true)
+            getOrders()
+          })
+          .catch(err => {
+            setLoggedIn(false)
+            history.push('/signin')
+          })
+      } else {
+        setLoggedIn(false)
+      }
+    })
+    .catch(err => {
+      const errors = Object.values(err)
+      if (errors) {
+        alert(errors.join(', '))
+      }
+      setLoggedIn(false)
+    })
+  }
+
   const loadSingleItem = ({ id, callback }) => {
     setTimeout(_ => {
       callback()
@@ -256,11 +283,13 @@ function App() {
           <Route exact path='/signin'>
             <SignIn
               onSignIn={authorization}
+              onGoogleSignIn={authorizationGoogle}
             />
           </Route>
           <Route exact path='/signup'>
             <SignUp
               onSignUp={registration}
+              onGoogleSignIn={authorizationGoogle}
             />
           </Route>
           <Route path='/'>
