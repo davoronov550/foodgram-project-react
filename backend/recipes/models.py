@@ -27,12 +27,6 @@ class Tag(models.Model):
         ordering = ('name',)
         verbose_name = 'Тег'
         verbose_name_plural = 'Теги'
-        constraints = [
-            models.UniqueConstraint(
-                fields=('name', 'color',),
-                name='unique_tags'
-            )
-        ]
 
     def __str__(self):
         return self.name
@@ -75,7 +69,6 @@ class Recipe(models.Model):
     name = models.CharField(
         verbose_name='Название рецепта',
         max_length=200,
-        unique=True,
     )
     image = models.ImageField(
         verbose_name='Фото блюда',
@@ -115,6 +108,15 @@ class Recipe(models.Model):
         ordering = ('-pub_date',)
         verbose_name = 'Рецепт'
         verbose_name_plural = 'Рецепты'
+        indexes = (
+            models.Index(fields=('-pub_date',), name='recipe_pub_date_idx'),
+        )
+        constraints = (
+            models.UniqueConstraint(
+                fields=('author', 'name'),
+                name='unique_recipe_per_author',
+            ),
+        )
 
     def __str__(self):
         return self.name

@@ -46,17 +46,24 @@ class RecipeFilter(FilterSet):
 
     def get_is_favorited(self, queryset, name, value):
         """Рецепты, находящиеся в списке избранного."""
+        if self.request.user.is_anonymous:
+            return queryset.none() if value else queryset
         if value:
             return queryset.filter(
                 elected__user=self.request.user
-            )
+            ).distinct()
         return queryset.exclude(
             elected__user=self.request.user
-        )
+        ).distinct()
 
     def get_is_in_shopping_cart(self, queryset, name, value):
         """Рецепты, находящиеся в списке покупок."""
+        if self.request.user.is_anonymous:
+            return queryset.none() if value else queryset
         if value:
-            return Recipe.objects.filter(
+            return queryset.filter(
                 shopping__user=self.request.user
-            )
+            ).distinct()
+        return queryset.exclude(
+            shopping__user=self.request.user
+        ).distinct()

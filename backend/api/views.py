@@ -1,4 +1,4 @@
-from django.contrib.auth.hashers import make_password
+from django.db.models import Exists, OuterRef, Prefetch
 from django.http.response import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -19,7 +19,14 @@ from .serializers import (
 )
 from .filters import IngredientFilter, RecipeFilter
 from .permissions import AuthorOnly
-from recipes.models import Ingredient, Recipe, Tag
+from recipes.models import (
+    FavoriteRecipe,
+    Ingredient,
+    Recipe,
+    RecipeIngredient,
+    RecipeShoppingList,
+    Tag
+)
 from users.models import Follow, User
 from .services import get_ingredients
 
@@ -32,6 +39,16 @@ class CustomUserViewSet(UserViewSet):
     queryset = User.objects.all()
     serializer_class = CustomUserSerializer
 
+    def get_permissions(self):
+        """
+        Профиль '/me/' доступен только аутентифицированному пользователю
+        (иначе djoser отдаёт AllowAny из PERMISSIONS.user и падает на
+        сериализации AnonymousUser). Список и деталь остаются публичными.
+        """
+        if self.action == 'me':
+            return (permissions.IsAuthenticated(),)
+        return super().get_permissions()
+
     @action(methods=['POST'],
             detail=False,
             permission_classes=[permissions.IsAuthenticated])
@@ -41,16 +58,19 @@ class CustomUserViewSet(UserViewSet):
         изменение пароля.
         """
         user = self.request.user
-        if user.is_anonymous:
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
+        current_password = request.data.get('current_password')
         new_password = request.data.get('new_password')
         if not new_password:
             return Response(
                 {'error': '"new_password": обязательное поле для заполнения'},
                 status=status.HTTP_400_BAD_REQUEST)
-        user.password = make_password(new_password)
+        if not current_password or not user.check_password(current_password):
+            return Response(
+                {'current_password': 'Неверный текущий пароль.'},
+                status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(new_password)
         user.save()
-        return Response({'status': 'password set'})
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(methods=['POST', 'DELETE'], detail=True,
             permission_classes=[permissions.IsAuthenticated])
@@ -90,7 +110,7 @@ class CustomUserViewSet(UserViewSet):
         """
         subscriptions = User.objects.filter(
             following__user=self.request.user
-        )
+        ).prefetch_related('recipes')
         page = self.paginate_queryset(subscriptions)
         serializer = SubscriptionsSerializer(
             page, many=True,
@@ -111,13 +131,44 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
 
+    def get_queryset(self):
+        """
+        Рецепты с предзагрузкой связей (author, tags, ingredients)
+        и аннотациями is_favorited / is_in_shopping_cart для
+        авторизованного пользователя — без N+1 запросов.
+        """
+        user = self.request.user
+        queryset = Recipe.objects.select_related('author').prefetch_related(
+            'tags',
+            Prefetch(
+                'recipeingredient_set',
+                queryset=RecipeIngredient.objects.select_related('ingredient'),
+            ),
+        )
+        if user.is_authenticated:
+            queryset = queryset.annotate(
+                is_favorited=Exists(
+                    FavoriteRecipe.objects.filter(
+                        user=user, recipe=OuterRef('pk'),
+                    )
+                ),
+                is_in_shopping_cart=Exists(
+                    RecipeShoppingList.objects.filter(
+                        user=user, recipe=OuterRef('pk'),
+                    )
+                ),
+            )
+        return queryset
+
     def get_permissions(self):
         """
-        Просмотр списка рецептов и списка по id
-        доступен всем.
+        Просмотр списка рецептов и списка по id доступен всем;
+        изменять и удалять рецепт может только его автор.
         """
         if self.action in ['list', 'retrieve']:
             return (permissions.AllowAny(),)
+        if self.action in ['update', 'partial_update', 'destroy']:
+            return (permissions.IsAuthenticated(), AuthorOnly())
         return super().get_permissions()
 
     def get_serializer_class(self):
@@ -146,7 +197,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if object.exists():
             object.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response({'Этого рецепта не было в cписке'},
+        return Response({'error': 'Этого рецепта не было в списке'},
                         status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True,
@@ -163,7 +214,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Добавляет/удаляет рецепт в список покупок."""
         return self._action_post_delete(pk, RecipeShoppingListSerializer)
 
-    @action(detail=False, permission_classes=[AuthorOnly])
+    @action(detail=False,
+            permission_classes=[permissions.IsAuthenticated])
     def download_shopping_cart(self, request):
         """Загружает .txt файл со списком покупок."""
         ingredients = get_ingredients(request.user)
@@ -173,7 +225,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 f"\n- {ingredient[0]} "
                 f"({ingredient[1]}) - "
                 f"{ingredient[2]}")
-        file = 'shopping_list.txt'
+        file = 'shopping_list'
         response = HttpResponse(shopping_list, content_type='text/plain')
         response['Content-Disposition'] = f'attachment; filename="{file}.txt"'
         return response

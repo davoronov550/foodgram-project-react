@@ -133,5 +133,8 @@ dmypy.json
 
 .vscode/
 
+# VSCode Local History (может содержать секреты, напр. .env)
+.history/
+
 # Others
 node_modules

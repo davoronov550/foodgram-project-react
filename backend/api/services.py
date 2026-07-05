@@ -1,17 +1,19 @@
-from django.db.models import F, Sum
+from django.db.models import F, QuerySet, Sum
 
 from recipes.models import RecipeIngredient
+from users.models import User
 
 
-def get_ingredients(user):
+def get_ingredients(user: User) -> QuerySet:
     """
     Cуммирование одинаковых ингредиентов
     из разных рецептов для списка покупок.
     """
     ingredients = RecipeIngredient.objects.filter(
-        recipe__shopping__user=user).values(
+        recipe__shopping__user=user
+    ).values(
         name=F('ingredient__name'),
         unit=F('ingredient__unit')
-    ).annotate(amount=Sum('amount')).values_list(
-        'ingredient__name', 'ingredient__unit', 'amount')
+    ).annotate(total=Sum('amount')).values_list(
+        'name', 'unit', 'total')
     return ingredients
